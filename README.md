@@ -1,14 +1,18 @@
-# Welcome to your Lovable project
+# Lolole
+
+Crie um app que 
+
+a criança possa aprender a ler se divertindo em forma de um jogo fônico com o nome de Lololê, um jeito muito mais divertido de praticar alfabetização. Aqui, a criança aprende os sons das letras, escreve na tela, reconhece sílabas e começa a montar as primeiras palavras. Ela não fica só assistindo. Ela escuta, toca, responde e interage com o Lololê. aprende com uma trilha de 30 dias com novos desafios organizados passo a passo. Primeiro os sons, depois as sílabas e então as palavras. Tudo seguindo o método americano fônico.
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/69b241cb-6975-4f81-a384-4e8a59547765).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +24,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
