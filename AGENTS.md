@@ -29,4 +29,4 @@ use the editor.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
 
-- Speech uses the `/api/fala` server route and streamed PCM playback in `src/lib/audio.ts`, not device `speechSynthesis`, so Portuguese audio works even when no system voice is installed.
+- Speech uses the `/api/fala` server route and buffered PCM playback in `src/lib/audio.ts`, not device `speechSynthesis`, so Portuguese audio works even when no system voice is installed.

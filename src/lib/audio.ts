@@ -104,21 +104,25 @@ async function playSpeech(text: string, signal: AbortSignal) {
 
 async function playCached(samples: Float32Array<ArrayBuffer>, signal: AbortSignal) {
   const context = await openAudioContext();
-  const source = context.createBufferSource();
-  const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
-  buffer.copyToChannel(samples, 0);
-  source.buffer = buffer;
-  source.connect(context.destination);
-  const abort = () => source.stop();
-  signal.addEventListener("abort", abort, { once: true });
   try {
-    await new Promise<void>((resolve) => {
-      source.onended = () => resolve();
-      source.start(context.currentTime + 0.03);
-    });
     signal.throwIfAborted();
+    const source = context.createBufferSource();
+    const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
+    buffer.copyToChannel(samples, 0);
+    source.buffer = buffer;
+    source.connect(context.destination);
+    const abort = () => source.stop();
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      await new Promise<void>((resolve) => {
+        source.onended = () => resolve();
+        source.start(context.currentTime + 0.03);
+      });
+      signal.throwIfAborted();
+    } finally {
+      signal.removeEventListener("abort", abort);
+    }
   } finally {
-    signal.removeEventListener("abort", abort);
     await context.close();
   }
 }
@@ -136,17 +140,50 @@ function decodePCM(pending: Uint8Array, incoming: Uint8Array) {
 
 async function streamSpeech(text: string, signal: AbortSignal) {
   const context = await openAudioContext();
-  const sources = new Set<AudioBufferSourceNode>();
-  const playback: Promise<void>[] = [];
+  try {
+    signal.throwIfAborted();
+    let samples: Float32Array<ArrayBuffer>;
+    try {
+      samples = await fetchSpeech(text, signal);
+    } catch (error) {
+      signal.throwIfAborted();
+      if (!(error instanceof IncompleteAudioError)) throw error;
+      samples = await fetchSpeech(text, signal);
+    }
+    signal.throwIfAborted();
+    speechCache.set(text, samples);
+    const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
+    buffer.copyToChannel(samples, 0);
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    const abort = () => source.stop();
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      await new Promise<void>((resolve) => {
+        source.onended = () => resolve();
+        source.start(context.currentTime + 0.03);
+      });
+      signal.throwIfAborted();
+    } finally {
+      signal.removeEventListener("abort", abort);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+class IncompleteAudioError extends Error {
+  constructor() {
+    super("Não consegui tocar a voz agora. Toque em Ouvir para tentar novamente.");
+  }
+}
+
+async function fetchSpeech(text: string, signal: AbortSignal): Promise<Float32Array<ArrayBuffer>> {
   const chunks: Float32Array<ArrayBuffer>[] = [];
-  let playhead = 0;
   let pending = new Uint8Array(0);
   let completed = false;
-  let samplesPlayed = 0;
-  const abort = () => {
-    for (const source of sources) source.stop();
-  };
-  signal.addEventListener("abort", abort, { once: true });
+  let sampleCount = 0;
 
   try {
     const response = await fetch("/api/fala", {
@@ -168,28 +205,13 @@ async function streamSpeech(text: string, signal: AbortSignal) {
           return;
         }
         if (payload.type !== "speech.audio.delta") return;
-        if (completed || !payload.audio) throw new Error("O áudio chegou incompleto. Tente novamente.");
+        if (completed || !payload.audio) throw new IncompleteAudioError();
 
         const decoded = decodePCM(pending, Uint8Array.from(atob(payload.audio), (character) => character.charCodeAt(0)));
         pending = new Uint8Array(decoded.pending);
         if (!decoded.samples.length) return;
         chunks.push(decoded.samples);
-        samplesPlayed += decoded.samples.length;
-        const buffer = context.createBuffer(1, decoded.samples.length, SAMPLE_RATE);
-        buffer.copyToChannel(decoded.samples, 0);
-        const source = context.createBufferSource();
-        source.buffer = buffer;
-        source.connect(context.destination);
-        sources.add(source);
-        playback.push(new Promise<void>((resolve) => {
-          source.onended = () => {
-            sources.delete(source);
-            resolve();
-          };
-        }));
-        playhead = Math.max(playhead, context.currentTime + 0.05);
-        source.start(playhead);
-        playhead += buffer.duration;
+        sampleCount += decoded.samples.length;
       },
     });
 
@@ -205,19 +227,16 @@ async function streamSpeech(text: string, signal: AbortSignal) {
       reader.releaseLock();
     }
 
-    if (!completed || !samplesPlayed || pending.length) throw new Error("O áudio chegou incompleto. Tente novamente.");
-    const completeSamples = new Float32Array(samplesPlayed);
+    if (!completed || !sampleCount || pending.length) throw new IncompleteAudioError();
+    const completeSamples = new Float32Array(sampleCount);
     let offset = 0;
     for (const chunk of chunks) {
       completeSamples.set(chunk, offset);
       offset += chunk.length;
     }
-    speechCache.set(text, completeSamples);
-    await Promise.all(playback);
+    return completeSamples;
+  } catch (error) {
     signal.throwIfAborted();
-  } finally {
-    signal.removeEventListener("abort", abort);
-    for (const source of sources) source.stop();
-    await context.close();
+    throw error;
   }
 }

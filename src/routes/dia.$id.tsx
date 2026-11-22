@@ -18,11 +18,14 @@ export const Route = createFileRoute("/dia/$id")({
 function DayPage() {
   const { id } = Route.useParams();
   const d = Math.max(1, Math.min(30, Number(id) || 1));
-  const [seed, setSeed] = useState(0);
-  const day = useMemo(() => buildDay(d), [d, seed]);
+  return <DayContent key={d} d={d} />;
+}
+
+function DayContent({ d }: { d: number }) {
+  const day = useMemo(() => buildDay(d), [d]);
   const [step, setStep] = useState(0);
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); setStep(0); setSeed((s) => s + 1); }, [d]);
+  useEffect(() => { setMounted(true); }, []);
   const finished = step >= day.activities.length;
   useEffect(() => { if (finished && mounted) { markDone(d); playEffect("complete"); speak("Parabéns! Você conseguiu!"); } }, [finished, mounted, d]);
   if (!mounted) return null;
@@ -38,7 +41,7 @@ function DayPage() {
       </div>
       <p className="mt-4 text-center text-lg text-muted-foreground">{day.stage} · {day.title}</p>
       <div className="flex flex-1 flex-col items-center justify-center">
-        {finished ? <Done d={d} /> : act && <ActivityView key={`${seed}-${step}`} act={act} onNext={() => setStep((s) => s + 1)} />}
+        {finished ? <Done d={d} /> : act && <ActivityView key={step} act={act} onNext={() => setStep((s) => s + 1)} />}
       </div>
     </main>
   );
