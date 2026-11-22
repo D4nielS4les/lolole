@@ -62,10 +62,10 @@ function Done({ d }: { d: number }) {
   );
 }
 
-function Mascot({ text, say }: { text: string; say: string }) {
+function Mascot({ text, say, onSpeak }: { text: string; say: string; onSpeak?: () => void }) {
   return (
     <div className="mb-6 flex items-center gap-3">
-      <button onClick={() => speak(say)} className="text-6xl" aria-label="Ouvir">🦜</button>
+      <button onClick={() => { onSpeak?.(); void speak(say); }} className="text-6xl" aria-label="Ouvir">🦜</button>
       <div className="rounded-2xl bg-card px-4 py-3 text-xl font-bold">{text}</div>
     </div>
   );
@@ -96,14 +96,19 @@ function useFeedback(onNext: () => void) {
 
 function Listen({ act, onNext }: { act: Extract<Activity, { kind: "listen" }>; onNext: () => void }) {
   const { state, ok, bad } = useFeedback(onNext);
-  useEffect(() => { const t = setTimeout(() => speak(act.prompt), 300); return () => clearTimeout(t); }, [act.prompt]);
+  const promptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPrompt = () => { if (promptTimer.current !== null) clearTimeout(promptTimer.current); };
+  useEffect(() => {
+    promptTimer.current = setTimeout(() => speak(act.prompt), 300);
+    return () => cancelPrompt();
+  }, [act.prompt]);
   return (
     <div className="w-full text-center">
-      <Mascot text="Escute e toque no certo!" say={act.prompt} />
-      <button onClick={() => speak(act.prompt)} className="btn-chunky mb-8 rounded-full bg-secondary px-8 py-4 text-3xl font-extrabold">🔊 Ouvir</button>
+      <Mascot text="Escute e toque no certo!" say={act.prompt} onSpeak={cancelPrompt} />
+      <button onClick={() => { cancelPrompt(); void speak(act.prompt); }} className="btn-chunky mb-8 rounded-full bg-secondary px-8 py-4 text-3xl font-extrabold">🔊 Ouvir</button>
       <div className={`grid grid-cols-2 gap-4 ${state === "bad" ? "animate-wiggle" : ""}`}>
         {act.options.map((o) => (
-          <button key={o} disabled={state === "ok"} onClick={() => (o === act.answer ? ok() : bad())}
+          <button key={o} disabled={state === "ok"} onClick={() => { cancelPrompt(); if (o === act.answer) ok(); else bad(); }}
             className={`btn-chunky rounded-3xl py-8 text-5xl font-extrabold ${state === "ok" && o === act.answer ? "bg-grass animate-pop" : "bg-card"}`}>{o}</button>
         ))}
       </div>
@@ -152,9 +157,15 @@ function Trace({ target, onNext }: { target: string; onNext: () => void }) {
 function Build({ act, onNext }: { act: Extract<Activity, { kind: "build" }>; onNext: () => void }) {
   const { state, ok, bad } = useFeedback(onNext);
   const [picked, setPicked] = useState<number[]>([]);
-  useEffect(() => { const t = setTimeout(() => speak(`Monte ${act.answer}`), 300); return () => clearTimeout(t); }, [act.answer]);
+  const promptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPrompt = () => { if (promptTimer.current !== null) clearTimeout(promptTimer.current); };
+  useEffect(() => {
+    promptTimer.current = setTimeout(() => speak(`Monte ${act.answer}`), 300);
+    return () => cancelPrompt();
+  }, [act.answer]);
   const current = picked.map((i) => act.pieces[i]).join("");
   const tap = (i: number) => {
+    cancelPrompt();
     const np = [...picked, i]; setPicked(np); speak(act.pieces[i]!);
     const s = np.map((k) => act.pieces[k]).join("");
     if (s === act.answer) ok();
@@ -162,7 +173,7 @@ function Build({ act, onNext }: { act: Extract<Activity, { kind: "build" }>; onN
   };
   return (
     <div className="w-full text-center">
-      <Mascot text={`Monte: ${act.answer.toLowerCase()}`} say={act.answer} />
+      <Mascot text={`Monte: ${act.answer.toLowerCase()}`} say={act.answer} onSpeak={cancelPrompt} />
       {act.emoji && <div className="mb-4 text-8xl">{act.emoji}</div>}
       <div className={`mx-auto mb-8 flex min-h-24 items-center justify-center rounded-3xl border-4 border-dashed px-4 text-6xl font-extrabold ${state === "ok" ? "bg-grass animate-pop" : "bg-card"} ${state === "bad" ? "animate-wiggle" : ""}`}>{current || "?"}</div>
       <div className="flex flex-wrap justify-center gap-4">
