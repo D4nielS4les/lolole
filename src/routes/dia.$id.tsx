@@ -79,7 +79,17 @@ function ActivityView({ act, onNext }: { act: Activity; onNext: () => void }) {
 
 function useFeedback(onNext: () => void) {
   const [state, setState] = useState<"idle" | "ok" | "bad">("idle");
-  const ok = () => { setState("ok"); playEffect("success"); speak("Muito bem!"); setTimeout(onNext, 1100); };
+  const pending = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const ok = () => {
+    if (pending.current) return;
+    pending.current = true;
+    setState("ok");
+    playEffect("success");
+    void Promise.all([speak("Muito bem!"), new Promise((resolve) => setTimeout(resolve, 1100))])
+      .then(() => { if (mounted.current) onNext(); });
+  };
   const bad = () => { setState("bad"); playEffect("error"); speak("Tente de novo"); setTimeout(() => setState("idle"), 700); };
   return { state, ok, bad };
 }
@@ -93,7 +103,7 @@ function Listen({ act, onNext }: { act: Extract<Activity, { kind: "listen" }>; o
       <button onClick={() => speak(act.prompt)} className="btn-chunky mb-8 rounded-full bg-secondary px-8 py-4 text-3xl font-extrabold">🔊 Ouvir</button>
       <div className={`grid grid-cols-2 gap-4 ${state === "bad" ? "animate-wiggle" : ""}`}>
         {act.options.map((o) => (
-          <button key={o} onClick={() => (o === act.answer ? ok() : bad())}
+          <button key={o} disabled={state === "ok"} onClick={() => (o === act.answer ? ok() : bad())}
             className={`btn-chunky rounded-3xl py-8 text-5xl font-extrabold ${state === "ok" && o === act.answer ? "bg-grass animate-pop" : "bg-card"}`}>{o}</button>
         ))}
       </div>
@@ -105,6 +115,9 @@ function Trace({ target, onNext }: { target: string; onNext: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const [ink, setInk] = useState(0);
+  const [completing, setCompleting] = useState(false);
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { speak(`Escreva ${target}`); }, [target]);
   const pos = (e: React.PointerEvent) => { const r = ref.current!.getBoundingClientRect(); return [(e.clientX - r.left) * (ref.current!.width / r.width), (e.clientY - r.top) * (ref.current!.height / r.height)] as const; };
   const down = (e: React.PointerEvent) => { drawing.current = true; const c = ref.current!.getContext("2d")!; const [x, y] = pos(e); c.beginPath(); c.moveTo(x, y); };
@@ -125,7 +138,12 @@ function Trace({ target, onNext }: { target: string; onNext: () => void }) {
       </div>
       <div className="mt-6 flex justify-center gap-3">
         <button onClick={clear} className="btn-chunky rounded-2xl bg-card px-6 py-3 text-xl font-bold">Apagar</button>
-        <button disabled={ink < 25} onClick={() => { playEffect("success"); speak("Que lindo!"); setTimeout(onNext, 800); }} className="btn-chunky rounded-2xl bg-primary px-6 py-3 text-xl font-bold text-primary-foreground disabled:opacity-40">Pronto ✓</button>
+        <button disabled={ink < 25 || completing} onClick={() => {
+          setCompleting(true);
+          playEffect("success");
+          void Promise.all([speak("Que lindo!"), new Promise((resolve) => setTimeout(resolve, 800))])
+            .then(() => { if (mounted.current) onNext(); });
+        }} className="btn-chunky rounded-2xl bg-primary px-6 py-3 text-xl font-bold text-primary-foreground disabled:opacity-40">Pronto ✓</button>
       </div>
     </div>
   );
@@ -149,7 +167,7 @@ function Build({ act, onNext }: { act: Extract<Activity, { kind: "build" }>; onN
       <div className={`mx-auto mb-8 flex min-h-24 items-center justify-center rounded-3xl border-4 border-dashed px-4 text-6xl font-extrabold ${state === "ok" ? "bg-grass animate-pop" : "bg-card"} ${state === "bad" ? "animate-wiggle" : ""}`}>{current || "?"}</div>
       <div className="flex flex-wrap justify-center gap-4">
         {act.pieces.map((p, i) => (
-          <button key={i} disabled={picked.includes(i)} onClick={() => tap(i)} className="btn-chunky rounded-2xl bg-sun px-6 py-4 text-4xl font-extrabold disabled:opacity-30">{p}</button>
+          <button key={i} disabled={picked.includes(i) || state === "ok"} onClick={() => tap(i)} className="btn-chunky rounded-2xl bg-sun px-6 py-4 text-4xl font-extrabold disabled:opacity-30">{p}</button>
         ))}
       </div>
     </div>

@@ -29,4 +29,4 @@ use the editor.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
 
-- Speech uses prerecorded Brazilian Portuguese audio files in `public/audio`, generated with Piper's pt_BR faber voice, selected by `src/lib/speech-recordings.json` and played in `src/lib/audio.ts`. Add recordings for any new lesson phrases.
+- Speech uses prerecorded Brazilian Portuguese audio files in `public/audio`, generated with the female voice of tiny-voca-ptbr-kokoro, selected by `src/lib/speech-recordings.json` and played in `src/lib/audio.ts`. Add recordings for any new lesson phrases.

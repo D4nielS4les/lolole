@@ -1,7 +1,7 @@
 import recordings from "./speech-recordings.json";
 import { toast } from "sonner";
 
-let activeSpeech: HTMLAudioElement | null = null;
+let activeSpeech: { stop: () => void } | null = null;
 let effectContext: AudioContext | null = null;
 
 type Effect = "tap" | "success" | "error" | "complete";
@@ -53,30 +53,38 @@ export function playEffect(effect: Effect) {
   }
 }
 
-export function speak(text: string) {
+export function speak(text: string): Promise<void> {
   const cleaned = text.trim();
-  if (!cleaned || typeof window === "undefined") return;
+  if (!cleaned || typeof window === "undefined") return Promise.resolve();
 
-  activeSpeech?.pause();
+  activeSpeech?.stop();
   activeSpeech = null;
   const source = (recordings as Record<string, string>)[cleaned];
   if (!source) {
     toast.error("Essa fala ainda não está disponível.");
-    return;
+    return Promise.resolve();
   }
 
   const audio = new Audio(source);
-  activeSpeech = audio;
-  let reported = false;
-  const reportError = () => {
-    if (activeSpeech !== audio || reported) return;
-    reported = true;
-    activeSpeech = null;
-    toast.error("Não consegui tocar a voz. Toque em Ouvir para tentar novamente.");
-  };
-  audio.onended = () => {
-    if (activeSpeech === audio) activeSpeech = null;
-  };
-  audio.onerror = reportError;
-  void audio.play().catch(reportError);
+  return new Promise<void>((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(timeout);
+      if (activeSpeech === playback) activeSpeech = null;
+      resolve();
+    };
+    const playback = { stop: () => { audio.pause(); finish(); } };
+    const reportError = () => {
+      if (finished) return;
+      toast.error("Não consegui tocar a voz. Toque em Ouvir para tentar novamente.");
+      finish();
+    };
+    const timeout = window.setTimeout(() => { audio.pause(); reportError(); }, 15000);
+    activeSpeech = playback;
+    audio.onended = finish;
+    audio.onerror = reportError;
+    void audio.play().catch(reportError);
+  });
 }
