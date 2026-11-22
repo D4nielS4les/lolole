@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildDay, markDone, speak, type Activity } from "@/lib/lessons";
+import { buildDay, markDone, type Activity } from "@/lib/lessons";
+import { playEffect, speak } from "@/lib/audio";
 
 export const Route = createFileRoute("/dia/$id")({
   head: ({ params }) => ({ meta: [
@@ -23,7 +24,7 @@ function DayPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); setStep(0); setSeed((s) => s + 1); }, [d]);
   const finished = step >= day.activities.length;
-  useEffect(() => { if (finished && mounted) { markDone(d); speak("Parabéns! Você conseguiu!"); } }, [finished, mounted, d]);
+  useEffect(() => { if (finished && mounted) { markDone(d); playEffect("complete"); speak("Parabéns! Você conseguiu!"); } }, [finished, mounted, d]);
   if (!mounted) return null;
   const act = day.activities[step];
   return (
@@ -75,8 +76,8 @@ function ActivityView({ act, onNext }: { act: Activity; onNext: () => void }) {
 
 function useFeedback(onNext: () => void) {
   const [state, setState] = useState<"idle" | "ok" | "bad">("idle");
-  const ok = () => { setState("ok"); speak("Muito bem!"); setTimeout(onNext, 1100); };
-  const bad = () => { setState("bad"); speak("Tente de novo"); setTimeout(() => setState("idle"), 700); };
+  const ok = () => { setState("ok"); playEffect("success"); speak("Muito bem!"); setTimeout(onNext, 1100); };
+  const bad = () => { setState("bad"); playEffect("error"); speak("Tente de novo"); setTimeout(() => setState("idle"), 700); };
   return { state, ok, bad };
 }
 
@@ -121,7 +122,7 @@ function Trace({ target, onNext }: { target: string; onNext: () => void }) {
       </div>
       <div className="mt-6 flex justify-center gap-3">
         <button onClick={clear} className="btn-chunky rounded-2xl bg-card px-6 py-3 text-xl font-bold">Apagar</button>
-        <button disabled={ink < 25} onClick={() => { speak("Que lindo!"); setTimeout(onNext, 800); }} className="btn-chunky rounded-2xl bg-primary px-6 py-3 text-xl font-bold text-primary-foreground disabled:opacity-40">Pronto ✓</button>
+        <button disabled={ink < 25} onClick={() => { playEffect("success"); speak("Que lindo!"); setTimeout(onNext, 800); }} className="btn-chunky rounded-2xl bg-primary px-6 py-3 text-xl font-bold text-primary-foreground disabled:opacity-40">Pronto ✓</button>
       </div>
     </div>
   );

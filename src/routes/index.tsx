@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { buildDay, getDone, speak } from "@/lib/lessons";
+import { buildDay, getDone } from "@/lib/lessons";
+import { speak } from "@/lib/audio";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [

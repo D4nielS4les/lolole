@@ -58,14 +58,6 @@ export function buildDay(d: number): Day {
   ]};
 }
 
-export function speak(text: string) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text.toLowerCase());
-  u.lang = "pt-BR"; u.rate = 0.8; u.pitch = 1.2;
-  window.speechSynthesis.speak(u);
-}
-
 const KEY = "lololê-progress";
 export const getDone = (): number[] => { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; } };
 export const markDone = (d: number) => localStorage.setItem(KEY, JSON.stringify([...new Set([...getDone(), d])]));
